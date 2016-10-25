@@ -94,8 +94,13 @@ func (c *CheckProcessor) handleChecks(checks []consul.Check) {
 	changeThreshold := consulClient.CheckChangeThreshold()
 	for elapsed := 0; elapsed < changeThreshold; elapsed += 10 {
 		consulClient.UpdateCheckData()
+        	alerts := consulClient.NewAlerts()
+        	if len(alerts) > 0 {
+               		 c.notify(alerts)
+        	}
 		time.Sleep(10 * time.Second)
 	}
+
 	consulClient.UpdateCheckData()
 	log.Println("Processing health checks for notification.")
 	alerts := consulClient.NewAlerts()
