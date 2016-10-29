@@ -72,6 +72,18 @@ func (c *CheckProcessor) reminderRun() {
 	}
 }
 
+func (c *CheckProcessor) CheckNewAlerts() {
+	consulClient.LoadConfig()
+
+	consulClient.UpdateCheckData()
+
+	log.Println("Processing health checks for notification.")
+	alerts := consulClient.NewAlerts()
+	if len(alerts) > 0 {
+		c.notify(alerts)
+	}
+}
+
 func (c *CheckProcessor) handleChecks(checks []consul.Check) {
 	consulClient.LoadConfig()
 
@@ -90,24 +102,16 @@ func (c *CheckProcessor) handleChecks(checks []consul.Check) {
 		return
 	}
 
+	c.CheckNewAlerts()
+
 	log.Println("Running health check.")
 	changeThreshold := consulClient.CheckChangeThreshold()
 	for elapsed := 0; elapsed < changeThreshold; elapsed += 10 {
 		consulClient.UpdateCheckData()
-        	alerts := consulClient.NewAlerts()
-        	if len(alerts) > 0 {
-               		 c.notify(alerts)
-        	}
 		time.Sleep(10 * time.Second)
 	}
 
-	consulClient.UpdateCheckData()
-	log.Println("Processing health checks for notification.")
-	alerts := consulClient.NewAlerts()
-	if len(alerts) > 0 {
-		c.notify(alerts)
-	}
-
+	c.CheckNewAlerts()
 }
 
 func (c *CheckProcessor) notify(alerts []consul.Check) {
