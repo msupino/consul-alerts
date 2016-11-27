@@ -277,6 +277,7 @@ func (c *ConsulAlertClient) UpdateCheckData() {
 		if settodelete {
 			log.Printf("Reminder %s %s needs to be deleted, stale", node, check)
 		        c.DeleteReminder(node, check)
+		        c.DeleteHost(node)
 		}
 	}
 
@@ -366,6 +367,13 @@ func (c *ConsulAlertClient) DeleteReminder(node string, checkid string) {
 	key := fmt.Sprintf("consul-alerts/reminders/%s/%s", node, checkid)
 	c.api.KV().Delete(key, nil)
 	log.Println("Deleting reminder for node: ", node)
+}
+
+// DeleteHost from check outputs
+func (c *ConsulAlertClient) DeleteHost(node string) {
+        key := fmt.Sprintf("consul-alerts/checks/%s", node
+        c.api.KV().Delete(key, nil)
+        log.Println("Deleting checks for node: ", node)
 }
 
 // NewAlerts returns a list of checks marked for notification
