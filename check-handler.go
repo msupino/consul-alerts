@@ -1,8 +1,8 @@
 package main
 
 import (
-	"time"
 	"math"
+	"time"
 
 	"net/http"
 
@@ -62,13 +62,25 @@ func (c *CheckProcessor) reminderRun() {
 		durMins := int(math.Ceil(duration.Minutes()))
 		log.Println("Reminder message duration minutes: ", durMins)
 		if durMins >= message.Interval {
-			message.RmdCheck=time.Now()
+			message.RmdCheck = time.Now()
 			consulClient.SetReminder(message)
 			filteredMessages = append(filteredMessages, message)
 		}
 	}
 	if len(filteredMessages) > 0 {
 		c.notifEngine.queueMessages(filteredMessages)
+	}
+}
+
+func (c *CheckProcessor) CheckNewAlerts() {
+	consulClient.LoadConfig()
+
+	consulClient.UpdateCheckData()
+
+	log.Println("Processing health checks for notification.")
+	alerts := consulClient.NewAlerts()
+	if len(alerts) > 0 {
+		c.notify(alerts)
 	}
 }
 
@@ -90,19 +102,16 @@ func (c *CheckProcessor) handleChecks(checks []consul.Check) {
 		return
 	}
 
+	c.CheckNewAlerts()
+
 	log.Println("Running health check.")
 	changeThreshold := consulClient.CheckChangeThreshold()
 	for elapsed := 0; elapsed < changeThreshold; elapsed += 10 {
 		consulClient.UpdateCheckData()
 		time.Sleep(10 * time.Second)
 	}
-	consulClient.UpdateCheckData()
-	log.Println("Processing health checks for notification.")
-	alerts := consulClient.NewAlerts()
-	if len(alerts) > 0 {
-		c.notify(alerts)
-	}
 
+	c.CheckNewAlerts()
 }
 
 func (c *CheckProcessor) notify(alerts []consul.Check) {
