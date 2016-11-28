@@ -373,7 +373,7 @@ func (c *ConsulAlertClient) DeleteReminder(node string, checkid string) {
 func (c *ConsulAlertClient) DeleteHost(node string) {
         key := fmt.Sprintf("consul-alerts/checks/%s", node)
         c.api.KV().DeleteTree(key, nil)
-        log.Println("Deleting check history for node: ", key)
+        log.Println("Deleting check history for node: ", node)
 }
 
 // NewAlerts returns a list of checks marked for notification
