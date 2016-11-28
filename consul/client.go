@@ -257,18 +257,27 @@ func (c *ConsulAlertClient) UpdateCheckData() {
 	kvApi := c.api.KV()
 
 	healths, _, _ := healthApi.State("any", nil)
+	reminderkeys, _, _ := c.api.KV().List("consul-alerts/reminders/", nil)
 
-	keys, _, _ := c.api.KV().List("consul-alerts/reminders/", nil)
+	for index := range reminderkeys {
+		log.Printf("checking for stale reminders")
+		s := strings.Split(reminderkeys[index].Key, "/")
+		node, check := s[2], s[3]
 
-	for i := range keys {
-		for _, health := range healths {
-			s := strings.Split(keys[i].Key, "/")
-			node, check := s[2], s[3]
-			if (health.Node == node) && (health.CheckID == check) {
+		nodecat, _, _ := c.api.Health().Node(node, nil)
+		settodelete := true
+
+		for j := range nodecat {
+			// if ((nodecat[j].CheckID == check) && (nodecat[j].Status != "passing")) {
+			if nodecat[j].CheckID == check {
+				settodelete = false
 				break
 			}
-			log.Printf("Reminder exists for %s/%s, but node/check are offline, will delete", node, check)
-			c.DeleteReminder(node, check)
+		}
+		if settodelete {
+			log.Printf("Reminder %s %s needs to be deleted, stale", node, check)
+		        c.DeleteReminder(node, check)
+		        c.DeleteHost(node)
 		}
 	}
 
@@ -317,6 +326,8 @@ func (c *ConsulAlertClient) UpdateCheckData() {
 				log.Printf("Updating reminder data for %s", reminderkey)
 
 				remindermap["Output"] = health.Output
+				// remindermap["Status"] = health.Status
+
 				newreminder, _ := json.Marshal(remindermap)
 
 				_, err := kvApi.Put(&consulapi.KVPair{Key: reminderkey, Value: newreminder}, nil)
@@ -356,6 +367,13 @@ func (c *ConsulAlertClient) DeleteReminder(node string, checkid string) {
 	key := fmt.Sprintf("consul-alerts/reminders/%s/%s", node, checkid)
 	c.api.KV().Delete(key, nil)
 	log.Println("Deleting reminder for node: ", node)
+}
+
+// DeleteHost from check history
+func (c *ConsulAlertClient) DeleteHost(node string) {
+        key := fmt.Sprintf("consul-alerts/checks/%s", node)
+        c.api.KV().DeleteTree(key, nil)
+        log.Println("Deleting check history for node: ", key)
 }
 
 // NewAlerts returns a list of checks marked for notification
